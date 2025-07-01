@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>IntelliNote v3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --font-sans: 'Inter', sans-serif;
+            --color-primary: #8a5cf6;
+            --color-primary-light: #a78bfa;
+            --color-primary-translucent: rgba(138, 92, 246, 0.1);
+            
+            /* Note Colors */
+            --note-color-1: #fdba74; /* orange */
+            --note-color-2: #6ee7b7; /* green */
+            --note-color-3: #fca5a5; /* red */
+            --note-color-4: #93c5fd; /* blue */
+            --note-color-5: #d8b4fe; /* purple */
+
+            --background-dark: #111010;
+            --surface-dark: rgba(28, 28, 28, 0.5);
+            --text-primary-dark: #f5f5f4;
+            --text-secondary-dark: #a1a1aa;
+            --border-dark: rgba(245, 245, 244, 0.1);
+
+            --background-light: #f4f4f5;
+            --surface-light: rgba(255, 255, 255, 0.5);
+            --text-primary-light: #18181b;
+            --text-secondary-light: #71717a;
+            --border-light: rgba(28, 25, 23, 0.08);
+        }
+
+        .dark {
+            --color-bg: var(--background-dark);
+            --color-surface: var(--surface-dark);
+            --color-text: var(--text-primary-dark);
+            --color-text-secondary: var(--text-secondary-dark);
+            --color-border: var(--border-dark);
+        }
+
+        .light {
+            --color-bg: var(--background-light);
+            --color-surface: var(--surface-light);
+            --color-text: var(--text-primary-light);
+            --color-text-secondary: var(--text-secondary-light);
+            --color-border: var(--border-light);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            background-color: var(--color-bg);
+            font-family: var(--font-sans);
+            color: var(--color-text);
+            margin: 0;
+            overscroll-behavior: none;
+            transition: background-color 0.3s ease;
+        }
+        
+        .app-container {
+            max-width: 480px;
+            margin: auto;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--color-bg);
+        }
+        
+        .glass-bg-container { 
+            position: absolute; 
+            inset: 0; 
+            background-image: radial-gradient(circle at 10% 20%, var(--color-primary-translucent), transparent 40%), radial-gradient(circle at 80% 90%, var(--color-primary-translucent), transparent 40%); 
+            z-index: -1; 
+            transition: opacity 0.5s ease; 
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s;
+            padding: 1rem;
+        }
+
+        .screen:not(.active) {
+            transform: translateX(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #screen-list.active { transform: translateX(0); }
+        #screen-editor.active { transform: translateX(0); }
+        #screen-list:not(.active) { transform: translateX(-20%); }
+
+        /* --- List Screen --- */
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            flex-shrink: 0;
+        }
+        .list-header h1 { font-size: 2.25rem; font-weight: 800; margin: 0; }
+        .search-bar { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; background-color: var(--color-surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 1rem; padding: 0.25rem 0.5rem 0.25rem 1rem; border: 1px solid var(--color-border); transition: all 0.3s ease; }
+        .search-bar:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-translucent); }
+        .search-input { flex-grow: 1; background: none; border: none; outline: none; color: var(--color-text); font-size: 1rem; padding: 0.75rem 0; }
+        .note-list { flex-grow: 1; overflow-y: auto; padding: 0 0.25rem 6rem; margin: 0 -0.25rem; }
+        .note-list::-webkit-scrollbar { width: 0; }
+        .note-card {
+            background-color: var(--color-surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            border: 1px solid var(--color-border);
+            border-left: 5px solid var(--note-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            animation: scaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+            animation-delay: var(--delay);
+        }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .note-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .note-card h3 { margin: 0 0 0.5rem; font-weight: 600; color: var(--color-text); }
+        .note-card p { margin: 0; font-size: 0.875rem; color: var(--color-text-secondary); }
+        #empty-list-message { text-align: center; color: var(--color-text-secondary); padding: 4rem 1rem; }
+        #empty-list-message i { width: 48px; height: 48px; margin-bottom: 1rem; }
+        .fab {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--color-primary), var(--color-primary-light));
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 20px rgba(138, 92, 246, 0.4);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .fab:active { transform: scale(0.9); }
+
+        /* --- Editor Screen --- */
+        .editor-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; flex-shrink: 0; }
+        .editor-title { flex-grow: 1; background: none; border: none; outline: none; color: var(--color-text); font-size: 1.5rem; font-weight: 600; padding: 0.5rem 0; }
+        .editor-content { flex-grow: 1; font-size: 1rem; line-height: 1.7; outline: none; padding: 1rem 0; color: var(--color-text-secondary); }
+        .editor-content:empty:before { content: "Commencez à écrire ou dictez une note..."; color: var(--color-text-secondary); opacity: 0.5; cursor: text; }
+        .editor-content img { max-width: 100%; border-radius: 0.75rem; margin: 1rem 0; }
+        .editor-content ul { padding-left: 1.5rem; }
+        .editor-content li.checklist-item { list-style: none; margin-left: -1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+        .editor-content li.checklist-item::before { content: '☐'; font-size: 1.5rem; cursor: pointer; color: var(--color-text-secondary); }
+        .editor-content li.checklist-item.checked { text-decoration: line-through; color: var(--color-text-secondary); }
+        .editor-content li.checklist-item.checked::before { content: '☑'; color: var(--color-primary); }
+
+        .editor-actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; flex-shrink: 0; }
+        .editor-toolbar { display: flex; gap: 0.5rem; background-color: var(--color-surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--color-border); padding: 0.5rem; border-radius: 1rem; }
+        .color-picker { display: flex; gap: 0.5rem; }
+        .color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: all 0.2s ease; }
+        .color-dot.selected { border-color: var(--color-primary); transform: scale(1.1); }
+        
+        /* --- Generic UI --- */
+        .btn-icon { background: none; border: none; padding: 0.5rem; border-radius: 50%; color: var(--color-text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+        .btn-icon:hover { background-color: var(--color-border); color: var(--color-text); }
+        .btn-icon.active { color: var(--color-primary); }
+        .btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-danger { color: #f43f5e; }
+        .btn-danger:hover { background-color: rgba(244, 63, 94, 0.1); }
+        
+        /* Toast Notifications */
+        .toast-container { position: fixed; bottom: 1.5rem; left: 1rem; right: 1rem; display: flex; justify-content: center; pointer-events: none; z-index: 1000; }
+        .toast {
+            background-color: #333;
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            pointer-events: all;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.error { background-color: #be123c; }
+        .toast.success { background-color: #16a34a; }
+
+        /* Modal */
+        .modal-backdrop { position: fixed; inset: 0; z-index: 999; display: flex; align-items: center; justify-content: center; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(10px); opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+        .modal-backdrop.visible { opacity: 1; visibility: visible; }
+        .modal-content { background-color: var(--color-surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 1.25rem; max-width: 400px; width: 90%; text-align: center; transform: scale(0.95); transition: transform 0.3s ease; }
+        .modal-backdrop.visible .modal-content { transform: scale(1); }
+        .modal-content h2 { margin: 0 0 0.5rem; }
+        .modal-content p { margin: 0 0 1rem; color: var(--color-text-secondary); }
+        .modal-input { background-color: var(--color-bg); border: 1px solid var(--color-border); border-radius: 0.75rem; padding: 0.75rem 1rem; width: 100%; color: var(--color-text); transition: all 0.2s ease; font-size: 1rem; margin-bottom: 1rem; }
+        .modal-input:focus { outline: none; border-color: var(--color-primary); }
+        .btn { padding: 0.75rem 1.25rem; border-radius: 0.75rem; font-weight: 500; cursor: pointer; border: none; }
+        .btn-full { width: 100%; }
+        .btn-primary { background-color: var(--color-primary); color: white; }
+        .icon-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div id="app" class="app-container">
+        <div class="glass-bg-container"></div>
+        <!-- List Screen -->
+        <div id="screen-list" class="screen active">
+            <header class="list-header">
+                <h1>IntelliNote</h1>
+                <button id="theme-toggle-btn" class="btn-icon"><i data-lucide="sun"></i></button>
+            </header>
+            <div class="search-bar">
+                <i data-lucide="search" style="color: var(--color-text-secondary);"></i>
+                <input type="text" id="search-input" class="search-input" placeholder="Rechercher des notes...">
+            </div>
+            <div id="note-list" class="note-list">
+                <!-- Note cards will be injected here -->
+            </div>
+            <div id="empty-list-message" style="display: none;">
+                <i data-lucide="file-plus-2"></i>
+                <p>Créons votre première note, Matéo !</p>
+            </div>
+            <button id="fab-new-note" class="fab"><i data-lucide="plus"></i></button>
+        </div>
+
+        <!-- Editor Screen -->
+        <div id="screen-editor" class="screen">
+            <header class="editor-header">
+                <button id="back-btn" class="btn-icon"><i data-lucide="arrow-left"></i></button>
+                <input type="text" id="editor-title" class="editor-title" placeholder="Donnez un titre...">
+                <button id="delete-btn" class="btn-icon btn-danger"><i data-lucide="trash-2"></i></button>
+                <button id="save-btn" class="btn-icon"><i data-lucide="check"></i></button>
+            </header>
+            <div id="editor-content" contenteditable="true"></div>
+            <div class="editor-actions">
+                <div class="color-picker" id="color-picker"></div>
+                <div class="editor-toolbar">
+                    <button class="btn-icon" id="add-image-btn" title="Ajouter une image"><i data-lucide="image"></i></button>
+                    <button class="btn-icon" id="voice-input-btn" title="Dicter une note"><i data-lucide="mic"></i></button>
+                    <button class="btn-icon" id="ai-title-btn" title="Suggérer un titre"><i data-lucide="text-cursor-input"></i></button>
+                    <button class="btn-icon" id="ai-improve-btn" title="Améliorer le texte"><i data-lucide="wand-2"></i></button>
+                    <button class="btn-icon" id="ai-summarize-btn" title="Résumer la note"><i data-lucide="align-justify"></i></button>
+                    <button class="btn-icon" id="ai-checklist-btn" title="Créer une checklist"><i data-lucide="list-checks"></i></button>
+                    <button class="btn-icon" id="ai-action-btn" title="Suggérer une action"><i data-lucide="bot"></i></button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="toast-container"></div>
+    </div>
+    
+    <div id="api-key-modal" class="modal-backdrop">
+        <div class="modal-content">
+            <i data-lucide="key-round" style="color:var(--color-primary); margin-bottom:1rem; width:40px; height:40px;"></i>
+            <h2>Clé API Gemini Requise</h2>
+            <p>Pour activer l'IA, veuillez entrer votre clé API Google AI. Elle est enregistrée localement.</p>
+            <form id="modal-api-key-form">
+                <input id="modal-api-key-input" type="password" class="modal-input" placeholder="Entrez votre clé API ici" autofocus>
+                <button type="submit" class="btn btn-primary btn-full">Sauvegarder et Démarrer</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const app = {
+            state: {
+                notes: [],
+                activeScreen: 'list',
+                activeNoteId: null,
+                theme: 'dark',
+                apiKey: null,
+                searchTerm: '',
+                isListening: false,
+            },
+
+            elements: {
+                app: document.getElementById('app'),
+                screenList: document.getElementById('screen-list'),
+                screenEditor: document.getElementById('screen-editor'),
+                noteList: document.getElementById('note-list'),
+                emptyListMessage: document.getElementById('empty-list-message'),
+                themeToggleBtn: document.getElementById('theme-toggle-btn'),
+                searchInput: document.getElementById('search-input'),
+                fabNewNote: document.getElementById('fab-new-note'),
+                backBtn: document.getElementById('back-btn'),
+                saveBtn: document.getElementById('save-btn'),
+                deleteBtn: document.getElementById('delete-btn'),
+                editorTitle: document.getElementById('editor-title'),
+                editorContent: document.getElementById('editor-content'),
+                colorPicker: document.getElementById('color-picker'),
+                addImageBtn: document.getElementById('add-image-btn'),
+                voiceInputBtn: document.getElementById('voice-input-btn'),
+                toastContainer: document.getElementById('toast-container'),
+                apiKeyModal: document.getElementById('api-key-modal'),
+                modalApiKeyForm: document.getElementById('modal-api-key-form'),
+                modalApiKeyInput: document.getElementById('modal-api-key-input'),
+            },
+
+            init() {
+                this.loadState();
+                this.attachEventListeners();
+                this.render.run();
+                if (!this.state.apiKey) {
+                    this.elements.apiKeyModal.classList.add('visible');
+                }
+                this.initSpeechRecognition();
+            },
+
+            loadState() {
+                try {
+                    this.state.theme = localStorage.getItem('intellinote-theme') || 'dark';
+                    this.state.apiKey = localStorage.getItem('intellinote-apikey');
+                    this.state.notes = JSON.parse(localStorage.getItem('intellinote-notes') || '[]');
+                } catch (e) {
+                    console.error("Failed to load state", e);
+                }
+            },
+
+            saveState() {
+                try {
+                    localStorage.setItem('intellinote-theme', this.state.theme);
+                    if (this.state.apiKey) localStorage.setItem('intellinote-apikey', this.state.apiKey);
+                    localStorage.setItem('intellinote-notes', JSON.stringify(this.state.notes));
+                } catch (e) {
+                    console.error("Failed to save state", e);
+                }
+            },
+
+            attachEventListeners() {
+                const { elements } = this;
+                elements.themeToggleBtn.addEventListener('click', () => this.actions.toggleTheme());
+                elements.fabNewNote.addEventListener('click', () => this.actions.createNewNote());
+                elements.noteList.addEventListener('click', e => {
+                    const card = e.target.closest('.note-card');
+                    if (card) this.actions.selectNote(card.dataset.id);
+                });
+                elements.searchInput.addEventListener('input', e => {
+                    this.state.searchTerm = e.target.value;
+                    this.render.noteList();
+                });
+                elements.backBtn.addEventListener('click', () => this.actions.navigate('list'));
+                elements.saveBtn.addEventListener('click', () => this.actions.saveNote());
+                elements.deleteBtn.addEventListener('click', () => this.actions.deleteNote());
+                elements.colorPicker.addEventListener('click', e => {
+                    const dot = e.target.closest('.color-dot');
+                    if (dot) this.actions.selectNoteColor(dot.dataset.color);
+                });
+                elements.addImageBtn.addEventListener('click', () => this.actions.addImage());
+                elements.voiceInputBtn.addEventListener('click', () => this.actions.toggleVoiceListening());
+
+                document.querySelector('.editor-toolbar').addEventListener('click', e => {
+                    const button = e.target.closest('button');
+                    if (button && button.id.startsWith('ai-')) {
+                        this.actions.handleAiAction(button.id);
+                    }
+                });
+
+                elements.modalApiKeyForm.addEventListener('submit', e => {
+                    e.preventDefault();
+                    const key = elements.modalApiKeyInput.value.trim();
+                    if (key) {
+                        this.state.apiKey = key;
+                        this.saveState();
+                        elements.apiKeyModal.classList.remove('visible');
+                        this.ui.showToast('Clé API enregistrée !', 'success');
+                    }
+                });
+                
+                elements.editorContent.addEventListener('click', e => {
+                    if (e.target.tagName === 'LI' && e.target.classList.contains('checklist-item')) {
+                        e.target.classList.toggle('checked');
+                        this.actions.saveNote(false);
+                    }
+                });
+            },
+
+            initSpeechRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SpeechRecognition) {
+                    this.recognition = new SpeechRecognition();
+                    this.recognition.continuous = true;
+                    this.recognition.lang = 'fr-FR';
+                    this.recognition.interimResults = true;
+
+                    this.recognition.onresult = (event) => {
+                        let final_transcript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                final_transcript += event.results[i][0].transcript;
+                            }
+                        }
+                        if (final_transcript) {
+                            document.execCommand('insertText', false, final_transcript);
+                        }
+                    };
+
+                    this.recognition.onend = () => {
+                        if (this.state.isListening) {
+                           try { this.recognition.start(); } catch(e) { console.error(e); }
+                        }
+                    };
+                    
+                    this.recognition.onerror = (event) => {
+                        if (event.error === 'not-allowed') {
+                            this.ui.showToast("L'accès au micro est bloqué.", 'error');
+                        } else {
+                            this.ui.showToast(`Erreur de reconnaissance: ${event.error}`, 'error');
+                        }
+                        this.actions.toggleVoiceListening(false);
+                    };
+
+                } else {
+                    this.elements.voiceInputBtn.style.display = 'none';
+                    console.log("Speech Recognition not supported.");
+                }
+            },
+
+            actions: {
+                navigate: (screen) => {
+                    if (app.state.activeScreen === 'editor') {
+                        app.actions.saveNote(false);
+                    }
+                    app.state.activeScreen = screen;
+                    app.render.screens();
+                },
+
+                toggleTheme: () => {
+                    app.state.theme = app.state.theme === 'dark' ? 'light' : 'dark';
+                    app.saveState();
+                    app.render.theme();
+                },
+
+                createNewNote: () => {
+                    const newNote = {
+                        id: `note-${Date.now()}`,
+                        title: '',
+                        content: '',
+                        color: '1',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    };
+                    app.state.notes.unshift(newNote);
+                    app.state.activeNoteId = newNote.id;
+                    app.actions.navigate('editor');
+                    app.render.run();
+                },
+                
+                selectNote: (id) => {
+                    app.state.activeNoteId = id;
+                    app.actions.navigate('editor');
+                    app.render.editor();
+                },
+
+                saveNote: (showToast = true) => {
+                    const note = app.state.notes.find(n => n.id === app.state.activeNoteId);
+                    if (!note) return;
+
+                    const newTitle = app.elements.editorTitle.value.trim();
+                    const newContent = app.elements.editorContent.innerHTML;
+
+                    if (note.title !== newTitle || note.content !== newContent) {
+                        note.title = newTitle;
+                        note.content = newContent;
+                        note.updatedAt = new Date().toISOString();
+                        app.state.notes = app.state.notes.filter(n => n.id !== note.id);
+                        app.state.notes.unshift(note);
+                        app.saveState();
+                        if (showToast) app.ui.showToast('Note enregistrée !', 'success');
+                    }
+                },
+
+                deleteNote: () => {
+                    app.state.notes = app.state.notes.filter(n => n.id !== app.state.activeNoteId);
+                    app.state.activeNoteId = null;
+                    app.saveState();
+                    app.actions.navigate('list');
+                    app.ui.showToast('Note supprimée.', 'error');
+                },
+                
+                selectNoteColor: (color) => {
+                    const note = app.state.notes.find(n => n.id === app.state.activeNoteId);
+                    if (note) {
+                        note.color = color;
+                        app.render.colorPicker();
+                        app.actions.saveNote(false);
+                    }
+                },
+                
+                addImage: () => {
+                    const placeholderUrl = `https://placehold.co/600x400/282828/FFFFFF?text=Collez+l'URL+de+votre+image+ici`;
+                    const imgHtml = `<br><img src="${placeholderUrl}" alt="Image placeholder"><br>`;
+                    app.elements.editorContent.focus();
+                    document.execCommand('insertHTML', false, imgHtml);
+                    app.ui.showToast("Bloc image inséré. Modifiez le lien de l'image.", 'info');
+                },
+                
+                toggleVoiceListening: (forceState) => {
+                    if (!app.recognition) return;
+                    app.state.isListening = forceState !== undefined ? forceState : !app.state.isListening;
+                    if (app.state.isListening) {
+                        try {
+                            app.recognition.start();
+                            app.elements.voiceInputBtn.classList.add('active');
+                            app.ui.showToast("J'écoute...", 'success');
+                        } catch(e) {
+                            app.state.isListening = false;
+                            app.elements.voiceInputBtn.classList.remove('active');
+                            app.ui.showToast("La dictée a été interrompue.", 'error');
+                        }
+                    } else {
+                        app.recognition.stop();
+                        app.elements.voiceInputBtn.classList.remove('active');
+                    }
+                },
+
+                handleAiAction: async (actionId) => {
+                    if (!app.state.apiKey) {
+                        app.elements.apiKeyModal.classList.add('visible');
+                        return;
+                    }
+
+                    const button = document.getElementById(actionId);
+                    const originalIconHTML = button.innerHTML;
+                    const content = app.elements.editorContent.innerText;
+                    const selection = window.getSelection().toString();
+                    
+                    if (!content) {
+                        app.ui.showToast("Il n'y a rien à analyser.", "error");
+                        return;
+                    }
+
+                    button.disabled = true;
+                    button.innerHTML = `<i data-lucide="loader-2" class="icon-spin"></i>`;
+                    lucide.createIcons({ nodes: [button] });
+
+                    try {
+                        let result;
+                        switch (actionId) {
+                            case 'ai-title-btn':
+                                result = await app.ai.suggestTitle(content);
+                                if (result) app.elements.editorTitle.value = result;
+                                break;
+                            case 'ai-summarize-btn':
+                                result = await app.ai.summarize(content);
+                                if (result) app.elements.editorContent.innerHTML += `<br><br><strong>Résumé IA :</strong><br><em>${result}</em>`;
+                                break;
+                            case 'ai-improve-btn':
+                                const textToImprove = selection || content;
+                                result = await app.ai.improve(textToImprove);
+                                if (result) {
+                                    if (selection) document.execCommand('insertText', false, result);
+                                    else app.elements.editorContent.innerHTML = result;
+                                }
+                                break;
+                            case 'ai-checklist-btn':
+                                result = await app.ai.createChecklist(selection || content);
+                                if (result && Array.isArray(result)) {
+                                    const checklistHtml = result.map(item => `<li class="checklist-item">${item}</li>`).join('');
+                                    document.execCommand('insertHTML', false, `<ul>${checklistHtml}</ul>`);
+                                } else {
+                                    app.ui.showToast("L'IA n'a pas pu créer de checklist.", "error");
+                                }
+                                break;
+                            case 'ai-action-btn':
+                                result = await app.ai.suggestAction(content);
+                                if (result && result.prompt) {
+                                    app.ui.copyToClipboard(result.prompt);
+                                    app.ui.showToast(`Action suggérée copiée: ${result.action}`, "success");
+                                } else {
+                                    app.ui.showToast("Aucune action claire détectée.", "info");
+                                }
+                                break;
+                        }
+                        if (result) app.ui.showToast("Action IA terminée !", "success");
+                    } catch (error) {
+                        app.ui.showToast(error.message, "error");
+                    } finally {
+                        button.disabled = false;
+                        button.innerHTML = originalIconHTML;
+                        lucide.createIcons({ nodes: [button] });
+                    }
+                }
+            },
+
+            ai: {
+                run: async (prompt, jsonOutput = false) => {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${app.state.apiKey}`;
+                    const generationConfig = jsonOutput ? { responseMimeType: "application/json" } : {};
+                    const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig };
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) {
+                        const errBody = await response.json();
+                        throw new Error(errBody.error?.message || 'Erreur de l\'API IA');
+                    }
+                    const data = await response.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    return jsonOutput ? JSON.parse(text.replace(/```json\n?|```/g, '')) : text;
+                },
+                suggestTitle: (text) => app.ai.run(`Suggère un titre court et percutant (4-6 mots max) pour la note suivante. Réponds uniquement avec le titre. Contenu: "${text.substring(0, 500)}"`),
+                summarize: (text) => app.ai.run(`Résume cette note en 2-3 phrases clés. Contenu: "${text.substring(0, 1000)}"`),
+                improve: (text) => app.ai.run(`Réécris le texte suivant pour qu'il soit plus clair, concis et professionnel. Réponds uniquement avec le texte amélioré. Texte: "${text}"`),
+                createChecklist: (text) => app.ai.run(`Analyse ce texte et transforme chaque ligne ou phrase qui ressemble à une tâche en un élément de liste. Retourne un tableau JSON de chaînes. Texte: "${text}"`, true),
+                suggestAction: (text) => app.ai.run(`Analyse ce texte. Si tu trouves une tâche claire qui pourrait être faite par un assistant web (recherche, réservation, etc.), réponds en JSON avec {"action": "description courte de l'action", "prompt": "la commande pour l'assistant"}. Sinon, réponds {"action": null, "prompt": null}. Texte: "${text}"`, true),
+            },
+
+            render: {
+                run: () => {
+                    app.render.theme();
+                    app.render.screens();
+                    app.render.noteList();
+                    app.render.editor();
+                    lucide.createIcons();
+                },
+                theme: () => {
+                    document.documentElement.className = app.state.theme;
+                    const icon = app.state.theme === 'dark' ? 'sun' : 'moon';
+                    app.elements.themeToggleBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+                    lucide.createIcons({ nodes: [app.elements.themeToggleBtn] });
+                },
+                screens: () => {
+                    ['list', 'editor'].forEach(s => {
+                        app.elements[`screen${s.charAt(0).toUpperCase() + s.slice(1)}`].classList.toggle('active', app.state.activeScreen === s);
+                    });
+                },
+                noteList: () => {
+                    const { notes, searchTerm } = app.state;
+                    const filteredNotes = notes.filter(n => 
+                        (n.title && n.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (n.content && n.content.toLowerCase().includes(searchTerm.toLowerCase()))
+                    );
+
+                    if (filteredNotes.length === 0) {
+                        app.elements.noteList.innerHTML = '';
+                        app.elements.emptyListMessage.style.display = 'block';
+                        return;
+                    }
+
+                    app.elements.emptyListMessage.style.display = 'none';
+                    app.elements.noteList.innerHTML = filteredNotes.map((note, index) => {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = note.content;
+                        const excerpt = tempDiv.textContent || "";
+                        return `
+                            <div class="note-card" data-id="${note.id}" style="--note-color: var(--note-color-${note.color || 1}); --delay: ${index * 50}ms">
+                                <h3>${note.title || 'Note sans titre'}</h3>
+                                <p>${excerpt.substring(0, 100) || 'Aucun contenu'}</p>
+                            </div>
+                        `;
+                    }).join('');
+                },
+                editor: () => {
+                    const note = app.state.notes.find(n => n.id === app.state.activeNoteId);
+                    if (!note) return;
+                    app.elements.editorTitle.value = note.title;
+                    app.elements.editorContent.innerHTML = note.content;
+                    app.render.colorPicker();
+                },
+                colorPicker: () => {
+                    const note = app.state.notes.find(n => n.id === app.state.activeNoteId);
+                    if (!note) return;
+                    
+                    app.elements.colorPicker.innerHTML = [1, 2, 3, 4, 5].map(i => `
+                        <div 
+                            class="color-dot ${note.color == i ? 'selected' : ''}" 
+                            data-color="${i}" 
+                            style="background-color: var(--note-color-${i})">
+                        </div>
+                    `).join('');
+                }
+            },
+
+            ui: {
+                showToast: (message, type = 'info') => {
+                    const toast = document.createElement('div');
+                    toast.className = `toast ${type}`;
+                    toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}"></i><span>${message}</span>`;
+                    app.elements.toastContainer.appendChild(toast);
+                    lucide.createIcons({ nodes: [toast] });
+
+                    setTimeout(() => {
+                        toast.classList.add('show');
+                    }, 10);
+
+                    setTimeout(() => {
+                        toast.classList.remove('show');
+                        toast.addEventListener('transitionend', () => {
+                            if (toast.parentNode) {
+                                toast.parentNode.removeChild(toast);
+                            }
+                        }, { once: true });
+                    }, 3000);
+                },
+                copyToClipboard: (text) => {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                    } catch (err) {
+                        console.error('Fallback: Oops, unable to copy', err);
+                    }
+                    document.body.removeChild(textArea);
+                }
+            },
+        };
+        
+        Object.keys(app).forEach(key => {
+            if (typeof app[key] === 'object' && app[key] !== null) {
+                Object.keys(app[key]).forEach(subKey => {
+                    if (typeof app[key][subKey] === 'function') {
+                        app[key][subKey] = app[key][subKey].bind(app);
+                    }
+                });
+            }
+        });
+
+        app.init();
+        window.IntelliNote = app;
+    });
+    </script>
+</body>
+</html>
